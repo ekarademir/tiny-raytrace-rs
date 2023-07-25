@@ -41,6 +41,14 @@ impl Sphere {
     }
 }
 
+fn cast_ray(origin: &Vec3, direction: &Vec3, sphere: &Sphere) -> Vec3 {
+    if !sphere.ray_intersect(origin, direction) {
+        return (0.2, 0.7, 0.8).into();
+    }
+
+    (0.4, 0.4, 0.3).into()
+}
+
 fn render() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let width: u32 = 1024; // px
     let height: u32 = 768; // px
