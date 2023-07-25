@@ -1,4 +1,45 @@
+use glam::Vec3;
 use image::{Rgb, RgbImage};
+
+struct Sphere {
+    center: Vec3,
+    radius: f32,
+}
+
+impl Sphere {
+    fn new(center: Vec3, radius: f32) -> Self {
+        Sphere { center, radius }
+    }
+
+    fn ray_intersect(&self, originates: &Vec3, direction: &Vec3) -> bool {
+        // Produce a vector that is from the originating point
+        // to the centre of the sphere
+        let delta = self.center - originates.clone();
+
+        // See if sphere is in the fornt of at behind of this direction.
+        let projection = delta.dot(direction.clone());
+
+        // Aright triangle formed by delta, projection and the orthogonal to
+        // the projection. Check if that third distance is less than radius
+        let orth_sq = delta.dot(delta) - projection * projection;
+        let radius_sq = self.radius * self.radius;
+
+        if orth_sq > radius_sq {
+            return false;
+        }
+
+        // Now calculate the size of the intersected bit
+        let half_segment = f32::sqrt(radius_sq - orth_sq);
+
+        let first_intersection_distance = projection - half_segment;
+
+        if first_intersection_distance < 0.0 {
+            return false;
+        }
+
+        true
+    }
+}
 
 fn render() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let width: u32 = 1024; // px
