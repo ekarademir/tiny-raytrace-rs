@@ -2,6 +2,21 @@ use glam::Vec3;
 use image::{Rgb, RgbImage};
 
 #[derive(Copy, Clone)]
+struct Light {
+    position: Vec3,
+    intensity: f32,
+}
+
+impl Default for Light {
+    fn default() -> Self {
+        Light {
+            position: (-20.0, 20.0, 20.0).into(),
+            intensity: 1.5,
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
 struct Material {
     diffuse_colour: Vec3,
 }
@@ -73,33 +88,49 @@ impl Sphere {
     }
 }
 
-fn cast_ray(origin: &Vec3, direction: &Vec3, spheres: &Vec<Sphere>) -> Vec3 {
+fn cast_ray(origin: &Vec3, direction: &Vec3, spheres: &Vec<Sphere>, lights: &Vec<Light>) -> Vec3 {
     match scene_intersect(origin, direction, spheres) {
-        Some(material) => material.diffuse_colour,
+        Some((material, point, n)) => {
+            let mut diffuse_light_intensity: f32 = 0.0;
+
+            for light in lights {
+                let light_dir = (light.position - point).normalize();
+                diffuse_light_intensity += light.intensity * f32::max(0.0, light_dir.dot(n));
+            }
+
+            return material.diffuse_colour * diffuse_light_intensity;
+        }
         None => Material::default().diffuse_colour,
     }
 }
 
-fn scene_intersect(origin: &Vec3, direction: &Vec3, spheres: &Vec<Sphere>) -> Option<Material> {
+fn scene_intersect(
+    origin: &Vec3,
+    direction: &Vec3,
+    spheres: &Vec<Sphere>,
+) -> Option<(Material, Vec3, Vec3)> {
     let mut spheres_dist = std::f32::MAX;
-    let mut _hit = Vec3::default();
-    let mut _n = Vec3::default();
+    let mut hit = Vec3::default();
+    let mut n = Vec3::default();
     let mut material = Material::default();
     for sphere in spheres {
         if let Some(dist_i) = sphere.ray_intersect(origin, direction) {
             spheres_dist = dist_i;
-            _hit = *origin + (*direction) * dist_i;
-            _n = (_hit.clone() - sphere.center).normalize();
+            hit = *origin + (*direction) * dist_i;
+            n = (hit.clone() - sphere.center).normalize();
             material = sphere.material;
         }
     }
     if spheres_dist < 1000.0 {
-        return Some(material);
+        return Some((material, hit, n));
     }
     None
 }
 
-fn render(spheres: &Vec<Sphere>) -> std::result::Result<(), Box<dyn std::error::Error>> {
+fn render(
+    spheres: &Vec<Sphere>,
+    lights: &Vec<Light>,
+) -> std::result::Result<(), Box<dyn std::error::Error>> {
     let width: u32 = 1024; // px
     let height: u32 = 768; // px
     let field_of_view: f32 = std::f32::consts::FRAC_PI_2;
@@ -119,7 +150,7 @@ fn render(spheres: &Vec<Sphere>) -> std::result::Result<(), Box<dyn std::error::
             let y = -(2.0 * (j as f32 + 0.5) / height_f - 1.0) * f32::tan(field_of_view / 2.0);
 
             let direction = Vec3::new(x, y, -1.0).normalize();
-            let casted = cast_ray(&origin, &direction, spheres);
+            let casted = cast_ray(&origin, &direction, spheres, lights);
 
             let pixel = Rgb([
                 (255.0 * f32::max(0.0, f32::min(casted.x, 1.0))) as u8,
@@ -137,6 +168,8 @@ fn render(spheres: &Vec<Sphere>) -> std::result::Result<(), Box<dyn std::error::
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let mut spheres = Vec::new();
+    let mut lights = Vec::new();
+
     spheres.push(Sphere::new(
         (-3.0, 0.0, -16.0).into(),
         2.0,
@@ -158,6 +191,8 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         Material::ivory(),
     ));
 
-    render(&spheres)?;
+    lights.push(Light::default());
+
+    render(&spheres, &lights)?;
     Ok(())
 }
