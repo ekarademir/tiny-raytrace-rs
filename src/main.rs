@@ -1,5 +1,20 @@
-use glam::Vec3;
+use glam::{Vec2, Vec3};
 use image::{Rgb, RgbImage};
+
+trait ToRgb {
+    fn to_rgb(&self) -> Rgb<u8>;
+}
+
+impl ToRgb for Vec3 {
+    fn to_rgb(&self) -> Rgb<u8> {
+        let clamped = self.clamp(Vec3::ZERO, Vec3::ONE);
+        Rgb([
+            (255.0 * clamped.x) as u8,
+            (255.0 * clamped.y) as u8,
+            (255.0 * clamped.z) as u8,
+        ])
+    }
+}
 
 #[derive(Copy, Clone)]
 struct Light {
@@ -7,11 +22,11 @@ struct Light {
     intensity: f32,
 }
 
-impl Default for Light {
-    fn default() -> Self {
+impl Light {
+    fn new(position: Vec3, intensity: f32) -> Light {
         Light {
-            position: (-20.0, 20.0, 20.0).into(),
-            intensity: 1.5,
+            position,
+            intensity,
         }
     }
 }
@@ -19,26 +34,46 @@ impl Default for Light {
 #[derive(Copy, Clone)]
 struct Material {
     diffuse_colour: Vec3,
+    albedo: Vec2,
+    specular_exponent: f32,
 }
 
 impl Material {
-    fn new(diffuse_colour: Vec3) -> Self {
-        Material { diffuse_colour }
+    const fn new(diffuse_colour: Vec3, albedo: Vec2, specular_exponent: f32) -> Self {
+        Material {
+            diffuse_colour,
+            albedo,
+            specular_exponent,
+        }
     }
 
-    fn ivory() -> Self {
-        Self::new((0.4, 0.4, 0.3).into())
-    }
+    const IVORY: Self = Self::new(
+        Vec3 {
+            x: 0.4,
+            y: 0.4,
+            z: 0.3,
+        },
+        Vec2 { x: 0.6, y: 0.3 },
+        50.0,
+    );
 
-    fn red_rubber() -> Self {
-        Self::new((0.3, 0.1, 0.1).into())
-    }
+    const RED_RUBBER: Self = Self::new(
+        Vec3 {
+            x: 0.3,
+            y: 0.1,
+            z: 0.1,
+        },
+        Vec2 { x: 0.9, y: 0.1 },
+        10.0,
+    );
 }
 
 impl Default for Material {
     fn default() -> Self {
         Material {
             diffuse_colour: (0.2, 0.7, 0.8).into(),
+            albedo: Vec2::default(),
+            specular_exponent: 0.0,
         }
     }
 }
@@ -89,19 +124,32 @@ impl Sphere {
 }
 
 fn cast_ray(origin: &Vec3, direction: &Vec3, spheres: &Vec<Sphere>, lights: &Vec<Light>) -> Vec3 {
+    let ones: Vec3 = (1.0, 1.0, 1.0).into();
     match scene_intersect(origin, direction, spheres) {
         Some((material, point, normal)) => {
             let mut diffuse_light_intensity: f32 = 0.0;
+            let mut specular_light_intensity: f32 = 0.0;
 
             for light in lights {
                 let light_dir = (light.position - point).normalize();
                 diffuse_light_intensity += light.intensity * f32::max(0.0, light_dir.dot(normal));
+                let reflection = reflect(&light_dir, &normal);
+                specular_light_intensity += f32::powf(
+                    f32::max(0.0, reflection.dot(*direction)),
+                    material.specular_exponent,
+                ) * light.intensity;
             }
 
-            return material.diffuse_colour * diffuse_light_intensity;
+            return material.diffuse_colour * diffuse_light_intensity * material.albedo.x
+                + ones * specular_light_intensity * material.albedo.y;
         }
         None => Material::default().diffuse_colour,
     }
+}
+
+fn reflect(inverse: &Vec3, normal: &Vec3) -> Vec3 {
+    let inverse_dot_norm = inverse.dot(*normal);
+    *inverse - 2.0 * (*normal) * inverse_dot_norm
 }
 
 fn scene_intersect(
@@ -151,14 +199,7 @@ fn render(
 
             let direction = Vec3::new(x, y, -1.0).normalize();
             let casted = cast_ray(&origin, &direction, spheres, lights);
-
-            let pixel = Rgb([
-                (255.0 * f32::max(0.0, f32::min(casted.x, 1.0))) as u8,
-                (255.0 * f32::max(0.0, f32::min(casted.y, 1.0))) as u8,
-                (255.0 * f32::max(0.0, f32::min(casted.z, 1.0))) as u8,
-            ]);
-
-            framebuffer.put_pixel(i, j, pixel);
+            framebuffer.put_pixel(i, j, casted.to_rgb());
         }
     }
 
@@ -170,28 +211,22 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let mut spheres = Vec::new();
     let mut lights = Vec::new();
 
-    spheres.push(Sphere::new(
-        (-3.0, 0.0, -16.0).into(),
-        2.0,
-        Material::ivory(),
-    ));
+    spheres.push(Sphere::new((-3.0, 0.0, -16.0).into(), 2.0, Material::IVORY));
     spheres.push(Sphere::new(
         (-1.0, -1.5, -12.0).into(),
         2.0,
-        Material::red_rubber(),
+        Material::RED_RUBBER,
     ));
     spheres.push(Sphere::new(
         (1.5, -0.5, -18.0).into(),
         3.0,
-        Material::red_rubber(),
+        Material::RED_RUBBER,
     ));
-    spheres.push(Sphere::new(
-        (7.0, 5.0, -18.0).into(),
-        4.0,
-        Material::ivory(),
-    ));
+    spheres.push(Sphere::new((7.0, 5.0, -18.0).into(), 4.0, Material::IVORY));
 
-    lights.push(Light::default());
+    lights.push(Light::new((-20.0, 20.0, 20.0).into(), 1.5));
+    lights.push(Light::new((30.0, 50.0, -25.0).into(), 1.8));
+    lights.push(Light::new((30.0, 20.0, 30.0).into(), 1.7));
 
     render(&spheres, &lights)?;
     Ok(())
