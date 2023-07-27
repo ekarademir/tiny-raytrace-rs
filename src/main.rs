@@ -90,12 +90,12 @@ impl Sphere {
 
 fn cast_ray(origin: &Vec3, direction: &Vec3, spheres: &Vec<Sphere>, lights: &Vec<Light>) -> Vec3 {
     match scene_intersect(origin, direction, spheres) {
-        Some((material, point, n)) => {
+        Some((material, point, normal)) => {
             let mut diffuse_light_intensity: f32 = 0.0;
 
             for light in lights {
                 let light_dir = (light.position - point).normalize();
-                diffuse_light_intensity += light.intensity * f32::max(0.0, light_dir.dot(n));
+                diffuse_light_intensity += light.intensity * f32::max(0.0, light_dir.dot(normal));
             }
 
             return material.diffuse_colour * diffuse_light_intensity;
@@ -111,18 +111,18 @@ fn scene_intersect(
 ) -> Option<(Material, Vec3, Vec3)> {
     let mut spheres_dist = std::f32::MAX;
     let mut hit = Vec3::default();
-    let mut n = Vec3::default();
+    let mut normal = Vec3::default();
     let mut material = Material::default();
     for sphere in spheres {
         if let Some(dist_i) = sphere.ray_intersect(origin, direction) {
             spheres_dist = dist_i;
             hit = *origin + (*direction) * dist_i;
-            n = (hit.clone() - sphere.center).normalize();
+            normal = (hit.clone() - sphere.center).normalize();
             material = sphere.material;
         }
     }
     if spheres_dist < 1000.0 {
-        return Some((material, hit, n));
+        return Some((material, hit, normal));
     }
     None
 }
