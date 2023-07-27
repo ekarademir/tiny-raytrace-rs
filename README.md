@@ -1,4 +1,7 @@
-This is an implementation of [tinyraytracer](https://github.com/ssloy/tinyraytracer/wiki/Part-1:-understandable-raytracing), in Rust.
+# tiny-raytrace-rs
+
+This is an implementation of [ssloy/tinyraytracer](https://github.com/ssloy/tinyraytracer/wiki/Part-1:-understandable-raytracing), in Rust.
+It doesn't follow the same code style but each step should be roughly equal. Also I used two famous libraries, [image](https://crates.io/crates/image) for creating the image and writing it on disk, and, [glam](https://crates.io/crates/glam) for vector algebra.
 
 - [Step 1](https://github.com/ekarademir/tiny-raytracer/commit/82e83439afb5dd4d563bbc020c3e7c575f8e9ae3) Write an image to disk
 - Step 2, [Commit 1](https://github.com/ekarademir/tiny-raytracer/commit/d769b50c896bed80fa0bb9292595467dce645313), [Commit 2](https://github.com/ekarademir/tiny-raytracer/commit/e7703564763a3f73b5b980e88b5aeccb1737cdd0), [Commit 3](https://github.com/ekarademir/tiny-raytracer/commit/ee35fe58a24058bd7a83dfca3828c88501c781be), The crucial one: ray tracing
