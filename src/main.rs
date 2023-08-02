@@ -1,4 +1,4 @@
-use glam::{Vec2, Vec3};
+use glam::Vec3;
 use image::{Rgb, RgbImage};
 
 trait ToRgb {
@@ -34,12 +34,12 @@ impl Light {
 #[derive(Copy, Clone)]
 struct Material {
     diffuse_colour: Vec3,
-    albedo: Vec2,
+    albedo: Vec3,
     specular_exponent: f32,
 }
 
 impl Material {
-    const fn new(diffuse_colour: Vec3, albedo: Vec2, specular_exponent: f32) -> Self {
+    const fn new(diffuse_colour: Vec3, albedo: Vec3, specular_exponent: f32) -> Self {
         Material {
             diffuse_colour,
             albedo,
@@ -53,7 +53,11 @@ impl Material {
             y: 0.4,
             z: 0.3,
         },
-        Vec2 { x: 0.6, y: 0.3 },
+        Vec3 {
+            x: 0.6,
+            y: 0.3,
+            z: 0.3,
+        },
         50.0,
     );
 
@@ -63,8 +67,26 @@ impl Material {
             y: 0.1,
             z: 0.1,
         },
-        Vec2 { x: 0.9, y: 0.1 },
+        Vec3 {
+            x: 0.9,
+            y: 0.1,
+            z: 0.1,
+        },
         10.0,
+    );
+
+    const MIRROR: Self = Self::new(
+        Vec3 {
+            x: 1.0,
+            y: 1.0,
+            z: 1.0,
+        },
+        Vec3 {
+            x: 0.0,
+            y: 10.0,
+            z: 0.8,
+        },
+        1425.0,
     );
 }
 
@@ -72,7 +94,7 @@ impl Default for Material {
     fn default() -> Self {
         Material {
             diffuse_colour: (0.2, 0.7, 0.8).into(),
-            albedo: Vec2::default(),
+            albedo: (1.0, 0.0, 0.0).into(),
             specular_exponent: 0.0,
         }
     }
@@ -128,9 +150,28 @@ impl Sphere {
     }
 }
 
-fn cast_ray(origin: &Vec3, direction: &Vec3, spheres: &Vec<Sphere>, lights: &Vec<Light>) -> Vec3 {
+fn cast_ray(
+    origin: &Vec3,
+    direction: &Vec3,
+    spheres: &Vec<Sphere>,
+    lights: &Vec<Light>,
+    depth: usize,
+) -> Vec3 {
+    let bg_colour = Material::default().diffuse_colour;
+    if depth > 4 {
+        return bg_colour;
+    }
     match scene_intersect(origin, direction, spheres) {
         Some((material, point, normal)) => {
+            let reflect_dir = reflect(direction, &normal).normalize();
+            let reflect_origin = if reflect_dir.dot(normal) < 0.0 {
+                point - normal * 1e-3
+            } else {
+                point + normal * 1e-3
+            };
+            let reflect_colour =
+                cast_ray(&reflect_origin, &reflect_dir, spheres, lights, depth + 1);
+
             let mut diffuse_light_intensity: f32 = 0.0;
             let mut specular_light_intensity: f32 = 0.0;
 
@@ -161,9 +202,10 @@ fn cast_ray(origin: &Vec3, direction: &Vec3, spheres: &Vec<Sphere>, lights: &Vec
             }
 
             return material.diffuse_colour * diffuse_light_intensity * material.albedo.x
-                + Vec3::ONE * specular_light_intensity * material.albedo.y;
+                + Vec3::ONE * specular_light_intensity * material.albedo.y
+                + reflect_colour * material.albedo.z;
         }
-        None => Material::default().diffuse_colour,
+        None => bg_colour,
     }
 }
 
@@ -218,7 +260,7 @@ fn render(
             let y = -(2.0 * (j as f32 + 0.5) / height_f - 1.0) * f32::tan(field_of_view / 2.0);
 
             let direction = Vec3::new(x, y, -1.0).normalize();
-            let casted = cast_ray(&origin, &direction, spheres, lights);
+            let casted = cast_ray(&origin, &direction, spheres, lights, 0);
             framebuffer.put_pixel(i, j, casted.to_rgb());
         }
     }
@@ -240,9 +282,9 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     spheres.push(Sphere::new(
         (-1.0, -1.5, -12.0).into(),
         2.0,
-        Material::RED_RUBBER,
+        Material::MIRROR,
     ));
-    spheres.push(Sphere::new((7.0, 5.0, -18.0).into(), 4.0, Material::IVORY));
+    spheres.push(Sphere::new((7.0, 5.0, -18.0).into(), 4.0, Material::MIRROR));
 
     lights.push(Light::new((-20.0, 20.0, 20.0).into(), 1.5));
     lights.push(Light::new((30.0, 50.0, -25.0).into(), 1.8));
