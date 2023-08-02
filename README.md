@@ -8,3 +8,4 @@ It doesn't follow the same code style but each step should be roughly equal. Als
 - [Step 3](https://github.com/ekarademir/tiny-raytracer/commit/4d204df5502100242836f1a2b4df502e925e7413) Add more spheres
 - [Step 4](https://github.com/ekarademir/tiny-raytracer/commit/099934cfe6f8bca5a2ca920f26705481d25f3c62) Lighting
 - [Step 5](https://github.com/ekarademir/tiny-raytracer/commit/ee280713ea072a4910be8bddb7a21291840fb126) Specular lighting
+- [Step 6](https://github.com/ekarademir/tiny-raytrace-rs/commit/afd737103018ef2e69c81e4e8087b47eede64d9b) Shadows
