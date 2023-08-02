@@ -1,4 +1,4 @@
-use glam::Vec3;
+use glam::{Vec3, Vec4};
 use image::{Rgb, RgbImage};
 
 const RECURSION_DEPTH: usize = 4;
@@ -36,16 +36,23 @@ impl Light {
 #[derive(Copy, Clone)]
 struct Material {
     diffuse_colour: Vec3,
-    albedo: Vec3,
+    albedo: Vec4,
     specular_exponent: f32,
+    refractive_index: f32,
 }
 
 impl Material {
-    const fn new(diffuse_colour: Vec3, albedo: Vec3, specular_exponent: f32) -> Self {
+    const fn new(
+        diffuse_colour: Vec3,
+        albedo: Vec4,
+        specular_exponent: f32,
+        refractive_index: f32,
+    ) -> Self {
         Material {
             diffuse_colour,
             albedo,
             specular_exponent,
+            refractive_index,
         }
     }
 
@@ -55,12 +62,14 @@ impl Material {
             y: 0.4,
             z: 0.3,
         },
-        Vec3 {
+        Vec4 {
             x: 0.6,
             y: 0.3,
             z: 0.3,
+            w: 0.0,
         },
         50.0,
+        1.0,
     );
 
     const RED_RUBBER: Self = Self::new(
@@ -69,12 +78,14 @@ impl Material {
             y: 0.1,
             z: 0.1,
         },
-        Vec3 {
+        Vec4 {
             x: 0.9,
             y: 0.1,
             z: 0.1,
+            w: 0.0,
         },
         10.0,
+        1.0,
     );
 
     const MIRROR: Self = Self::new(
@@ -83,12 +94,30 @@ impl Material {
             y: 1.0,
             z: 1.0,
         },
-        Vec3 {
+        Vec4 {
             x: 0.0,
             y: 10.0,
             z: 0.8,
+            w: 0.0,
         },
         1425.0,
+        1.0,
+    );
+
+    const GLASS: Self = Self::new(
+        Vec3 {
+            x: 0.6,
+            y: 0.7,
+            z: 0.8,
+        },
+        Vec4 {
+            x: 0.0,
+            y: 0.5,
+            z: 0.1,
+            w: 0.8,
+        },
+        125.0,
+        1.5,
     );
 }
 
@@ -96,8 +125,9 @@ impl Default for Material {
     fn default() -> Self {
         Material {
             diffuse_colour: (0.2, 0.7, 0.8).into(),
-            albedo: (1.0, 0.0, 0.0).into(),
+            albedo: (1.0, 0.0, 0.0, 0.0).into(),
             specular_exponent: 0.0,
+            refractive_index: 0.0,
         }
     }
 }
@@ -166,13 +196,23 @@ fn cast_ray(
     match scene_intersect(origin, direction, spheres) {
         Some((material, point, normal)) => {
             let reflect_dir = reflect(direction, &normal).normalize();
+            let refract_dir = refract(direction, &normal, &material.refractive_index).normalize();
+
             let reflect_origin = if reflect_dir.dot(normal) < 0.0 {
                 point - normal * 1e-3
             } else {
                 point + normal * 1e-3
             };
+            let refract_origin = if refract_dir.dot(normal) < 0.0 {
+                point - normal * 1e-3
+            } else {
+                point + normal * 1e-3
+            };
+
             let reflect_colour =
                 cast_ray(&reflect_origin, &reflect_dir, spheres, lights, depth + 1);
+            let refract_colour =
+                cast_ray(&refract_origin, &refract_dir, spheres, lights, depth + 1);
 
             let mut diffuse_light_intensity: f32 = 0.0;
             let mut specular_light_intensity: f32 = 0.0;
@@ -205,7 +245,8 @@ fn cast_ray(
 
             return material.diffuse_colour * diffuse_light_intensity * material.albedo.x
                 + Vec3::ONE * specular_light_intensity * material.albedo.y
-                + reflect_colour * material.albedo.z;
+                + reflect_colour * material.albedo.z
+                + refract_colour * material.albedo.w;
         }
         None => bg_colour,
     }
@@ -214,6 +255,28 @@ fn cast_ray(
 fn reflect(inverse: &Vec3, normal: &Vec3) -> Vec3 {
     let inverse_dot_norm = inverse.dot(*normal);
     *inverse - 2.0 * (*normal) * inverse_dot_norm
+}
+
+fn refract(incident: &Vec3, normal: &Vec3, refractive_index: &f32) -> Vec3 {
+    let mut cos_i = -f32::max(-1.0, f32::min(1.0, incident.dot(normal.clone())));
+    let mut eta_i = 1.0;
+    let mut eta_t = *refractive_index;
+    let mut n = *normal;
+
+    if cos_i < 0.0 {
+        cos_i = -cos_i;
+        std::mem::swap(&mut eta_i, &mut eta_t);
+        n = -1.0 * n;
+    }
+
+    let eta = eta_i / eta_t;
+    let k = 1.0 - eta * eta * (1.0 - cos_i * cos_i);
+
+    if k < 0.0 {
+        (1.0, 0.0, 0.0).into()
+    } else {
+        *incident * eta + n * (eta * cos_i - f32::sqrt(k))
+    }
 }
 
 fn scene_intersect(
@@ -284,7 +347,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     spheres.push(Sphere::new(
         (-1.0, -1.5, -12.0).into(),
         2.0,
-        Material::MIRROR,
+        Material::GLASS,
     ));
     spheres.push(Sphere::new((7.0, 5.0, -18.0).into(), 4.0, Material::MIRROR));
 
