@@ -121,6 +121,13 @@ impl Material {
     );
 }
 
+const CHECKER_BOARD_1: Vec3 = Vec3::ONE;
+const CHECKER_BOARD_2: Vec3 = Vec3 {
+    x: 1.0,
+    y: 0.7,
+    z: 0.3,
+};
+
 impl Default for Material {
     fn default() -> Self {
         Material {
@@ -296,7 +303,33 @@ fn scene_intersect(
             material = sphere.material;
         }
     }
-    if spheres_dist < 1000.0 {
+
+    let mut checkerboard_dist = std::f32::MAX;
+    if f32::abs(direction.y) > 1e-3 {
+        let plane_dist = -(origin.y + 4.0) / direction.y;
+        let plane = *origin + *direction * plane_dist;
+
+        let hits_plane = plane_dist > 0.0
+            && f32::abs(plane.x) < 10.0
+            && plane.z < -10.0
+            && plane.z > -30.0
+            && plane_dist < spheres_dist;
+        if hits_plane {
+            checkerboard_dist = plane_dist;
+            hit = plane;
+            normal = (0.0, 1.0, 0.0).into();
+
+            let checker_cond = ((0.5 * hit.x + 1000.0) as i32 + (0.5 * hit.z) as i32) & 1 == 1;
+
+            material.diffuse_colour = if checker_cond {
+                CHECKER_BOARD_1 * 0.3
+            } else {
+                CHECKER_BOARD_2 * 0.3
+            };
+        }
+    }
+
+    if f32::min(spheres_dist, checkerboard_dist) < 1000.0 {
         return Some((material, hit, normal));
     }
     None
