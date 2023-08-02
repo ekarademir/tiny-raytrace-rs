@@ -11,3 +11,9 @@ It doesn't follow the same code style but each step should be roughly equal. Als
 - [Step 6](https://github.com/ekarademir/tiny-raytrace-rs/commit/afd737103018ef2e69c81e4e8087b47eede64d9b) Shadows
 - [Step 7](https://github.com/ekarademir/tiny-raytrace-rs/commit/1d57006c251a0977a8a5e62d4497707e1b5ac7d8) Reflections
 - [Step 8](https://github.com/ekarademir/tiny-raytrace-rs/commit/43fef840a4835d9f9349876a6846a150294a5616) Refractions
+- [Step 9](https://github.com/ekarademir/tiny-raytrace-rs/commit/0fc8d93c5f9129781e179c5cd534d33ced4049eb) Beyond the spheres
+
+I stopped at Step 9, after which there is a take home assignment, but I think I got quite a bit of insight already.
+
+Here is the final produced image:
+![Rendered result](./out.png)
