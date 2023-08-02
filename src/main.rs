@@ -1,6 +1,8 @@
 use glam::Vec3;
 use image::{Rgb, RgbImage};
 
+const RECURSION_DEPTH: usize = 4;
+
 trait ToRgb {
     fn to_rgb(&self) -> Rgb<u8>;
 }
@@ -118,7 +120,7 @@ impl Sphere {
     fn ray_intersect(&self, origin: &Vec3, direction: &Vec3) -> Option<f32> {
         // Produce a vector that is from the originating point
         // to the centre of the sphere
-        let delta = self.center - origin.clone();
+        let delta = self.center - *origin;
 
         // See if sphere is in the front of at behind of this direction.
         let projection = delta.dot(*direction);
@@ -158,7 +160,7 @@ fn cast_ray(
     depth: usize,
 ) -> Vec3 {
     let bg_colour = Material::default().diffuse_colour;
-    if depth > 4 {
+    if depth > RECURSION_DEPTH {
         return bg_colour;
     }
     match scene_intersect(origin, direction, spheres) {
