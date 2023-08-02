@@ -113,18 +113,22 @@ impl Sphere {
             return None;
         }
 
-        let first_intersection_distance = projection - half_segment;
+        let first_intersection_distance_closer = projection - half_segment;
+        let first_intersection_distance_farther = delta.dot(*direction) + half_segment;
 
-        if first_intersection_distance < 0.0 {
-            return Some(delta.dot(*direction) + half_segment);
+        if first_intersection_distance_closer < 0.0 {
+            if first_intersection_distance_farther < 0.0 {
+                None
+            } else {
+                Some(first_intersection_distance_farther)
+            }
+        } else {
+            Some(first_intersection_distance_closer)
         }
-
-        Some(delta.dot(*direction) - half_segment)
     }
 }
 
 fn cast_ray(origin: &Vec3, direction: &Vec3, spheres: &Vec<Sphere>, lights: &Vec<Light>) -> Vec3 {
-    let ones: Vec3 = (1.0, 1.0, 1.0).into();
     match scene_intersect(origin, direction, spheres) {
         Some((material, point, normal)) => {
             let mut diffuse_light_intensity: f32 = 0.0;
@@ -132,6 +136,22 @@ fn cast_ray(origin: &Vec3, direction: &Vec3, spheres: &Vec<Sphere>, lights: &Vec
 
             for light in lights {
                 let light_dir = (light.position - point).normalize();
+                let light_distance = (light.position - point).length();
+
+                let shadow_origin = if light_dir.dot(normal) < 0.0 {
+                    point - normal * 1e-4
+                } else {
+                    point + normal * 1e-4
+                };
+
+                if let Some((_tmpmaterial, shadow_point, _shadow_normal)) =
+                    scene_intersect(&shadow_origin, &light_dir, spheres)
+                {
+                    if (shadow_point - shadow_origin).length() < light_distance {
+                        continue;
+                    }
+                }
+
                 diffuse_light_intensity += light.intensity * f32::max(0.0, light_dir.dot(normal));
                 let reflection = reflect(&light_dir, &normal);
                 specular_light_intensity += f32::powf(
@@ -141,7 +161,7 @@ fn cast_ray(origin: &Vec3, direction: &Vec3, spheres: &Vec<Sphere>, lights: &Vec
             }
 
             return material.diffuse_colour * diffuse_light_intensity * material.albedo.x
-                + ones * specular_light_intensity * material.albedo.y;
+                + Vec3::ONE * specular_light_intensity * material.albedo.y;
         }
         None => Material::default().diffuse_colour,
     }
@@ -165,7 +185,7 @@ fn scene_intersect(
         if let Some(dist_i) = sphere.ray_intersect(origin, direction) {
             spheres_dist = dist_i;
             hit = *origin + (*direction) * dist_i;
-            normal = (hit.clone() - sphere.center).normalize();
+            normal = (hit - sphere.center).normalize();
             material = sphere.material;
         }
     }
@@ -213,13 +233,13 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     spheres.push(Sphere::new((-3.0, 0.0, -16.0).into(), 2.0, Material::IVORY));
     spheres.push(Sphere::new(
-        (-1.0, -1.5, -12.0).into(),
-        2.0,
+        (1.5, -0.5, -18.0).into(),
+        3.0,
         Material::RED_RUBBER,
     ));
     spheres.push(Sphere::new(
-        (1.5, -0.5, -18.0).into(),
-        3.0,
+        (-1.0, -1.5, -12.0).into(),
+        2.0,
         Material::RED_RUBBER,
     ));
     spheres.push(Sphere::new((7.0, 5.0, -18.0).into(), 4.0, Material::IVORY));
